@@ -1,52 +1,68 @@
-from bs4 import BeautifulSoup
+import os
+import pickle
+import random
 import re
+import requests
+import time
 
-from .utils import cached_get, BlockedBySiteError
-
-
+from bs4 import BeautifulSoup
 
 
 BASE_URL = "https://www.basketball-reference.com"
+CACHE_FILE = "cache.pkl"
+
+if os.path.exists(CACHE_FILE):
+    with open(CACHE_FILE, "rb") as f:
+        cache = pickle.load(f)
+else:
+    cache = {}
 
 
+def save_cache():
+    with open(CACHE_FILE, "wb") as f:
+        pickle.dump(cache, f)
 
 def get_games_by_date(date):
     url = f"{BASE_URL}/boxscores/?month={date.month}&day={date.day}&year={date.year}"
-    html = cached_get(url)
-    soup = BeautifulSoup(html, "html.parser")
 
-    links = soup.select("td.gamelink a")
-    return [BASE_URL + l["href"] for l in links]
+    if url in cache:
+        links = cache[url]
+    else:
+        time.sleep(random.uniform(2, 5))
+        response = requests.get(url).text
+        soup = BeautifulSoup(response, "html.parser")
+        links = [BASE_URL + l["href"] for l in soup.select("td.gamelink a")]
+        cache[url] = links
+        save_cache()
 
-def get_team_names(game_url):
-    html = cached_get(game_url)
-    html = re.sub("<!--|-->", "", html)
+    return links
 
-    soup = BeautifulSoup(html, "html.parser")
-    teams = soup.select("div.scorebox strong a")
-    if len(teams) == 0:
-        raise BlockedBySiteError("No teams found — possibly blocked")
+def get_game_data(game_url):
+    if game_url in cache:
+        return cache[game_url]
 
-    return f'{teams[0].text} vs {teams[1].text}'
+    time.sleep(random.uniform(2, 5))
+    game_data = {}
 
-def get_play_by_play(game_url):
     game_id = game_url.split("/")[-1]
     play_by_play_url = f"{BASE_URL}/boxscores/pbp/{game_id}"
 
-    html = cached_get(play_by_play_url)
+    html = requests.get(play_by_play_url).text
     html = re.sub("<!--|-->", "", html)
-
     soup = BeautifulSoup(html, "html.parser")
+    teams = soup.select("div.scorebox strong a")
+    game_data['teams'] = f'{teams[0].text} vs {teams[1].text}'
+
     table = soup.find("table", {"id": "pbp"})
-
-    if not table: return []
-
     rows = table.find_all("tr")
     data = []
-
     for row in rows:
         cols = [c.text.strip() for c in row.find_all(["th", "td"])]
         if cols:
             data.append(cols)
+    game_data['pbp'] = data
 
-    return data
+    cache[game_url] = game_data
+    save_cache()
+
+    return game_data

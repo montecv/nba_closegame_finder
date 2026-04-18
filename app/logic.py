@@ -1,8 +1,7 @@
 from datetime import datetime, timedelta
 
-from .scraper import get_games_by_date, get_play_by_play, get_team_names
+from .scraper import get_games_by_date, get_game_data
 from .utils import parse_time, BlockedBySiteError
-
 
 
 def average_score_diff(data):
@@ -47,10 +46,11 @@ def get_matches_coef(start_date_str: str, end_date_str: str):
         print(date.date())
         games = get_games_by_date(date)
 
-        for game in games:
+        for game_url in games:
             try:
-                teams = get_team_names(game)
-                pbp_data = get_play_by_play(game)
+                game_data = get_game_data(game_url)
+                teams = game_data['teams']
+                pbp_data = game_data['pbp']
             except BlockedBySiteError:
                 print("Seems like we are blocked for 5 minutes or 1 hour. Stop getting info.")
                 return sorted(results, key=lambda r: r["coef"])
