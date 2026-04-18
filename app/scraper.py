@@ -1,8 +1,13 @@
-import re
 from bs4 import BeautifulSoup
-from .utils import cached_get
+import re
+
+from .utils import cached_get, BlockedBySiteError
+
+
+
 
 BASE_URL = "https://www.basketball-reference.com"
+
 
 
 def get_games_by_date(date):
@@ -19,6 +24,8 @@ def get_team_names(game_url):
 
     soup = BeautifulSoup(html, "html.parser")
     teams = soup.select("div.scorebox strong a")
+    if len(teams) == 0:
+        raise BlockedBySiteError("No teams found — possibly blocked")
 
     return f'{teams[0].text} vs {teams[1].text}'
 

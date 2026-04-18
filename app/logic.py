@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta
-from .scraper import get_games_by_date, get_team_names, get_play_by_play
-from .utils import parse_time
+
+from .scraper import get_games_by_date, get_play_by_play, get_team_names
+from .utils import parse_time, BlockedBySiteError
+
 
 
 def average_score_diff(data):
@@ -42,29 +44,31 @@ def get_matches_coef(start_date_str: str, end_date_str: str):
     results = []
 
     for date in daterange(start_date, end_date):
+        print(date.date())
         games = get_games_by_date(date)
 
         for game in games:
-            teams = get_team_names(game)
-            pbp_data = get_play_by_play(game)
+            try:
+                teams = get_team_names(game)
+                pbp_data = get_play_by_play(game)
+            except BlockedBySiteError:
+                print("Seems like we are blocked for 5 minutes or 1 hour. Stop getting info.")
+                return sorted(results, key=lambda r: r["coef"])
 
             data_scores = []
-            is_fourth, is_overtime = False, False
+            is_clutch_time = False
+            overtime_count = 0
             final_diff = 0
 
             for play in pbp_data:
                 if play == ['4th Q']:
-                    is_fourth = True
+                    is_clutch_time = True
                     continue
 
-                if play == ['1st OT']:
-                    is_overtime = 1
-                if play == ['2nd OT']:
-                    is_overtime = 2
-                if play == ['3rd OT']:
-                    is_overtime = 3
+                if play and play[0].endswith(" OT"):
+                    overtime_count += 1
 
-                if is_fourth and len(play) > 4:
+                if is_clutch_time and len(play) > 4:
                     if '-' in play[3]:
                         a, b = play[3].split('-')
                         diff = int(a) - int(b)
@@ -73,8 +77,8 @@ def get_matches_coef(start_date_str: str, end_date_str: str):
 
             avg_diff = abs(average_score_diff(data_scores))
             coef = min(avg_diff, abs(final_diff))
-            if is_overtime:
-                coef = coef/2**is_overtime
+            if overtime_count:
+                coef = coef/2**overtime_count
 
             results.append({
                 "date": date.strftime("%Y%m%d"),

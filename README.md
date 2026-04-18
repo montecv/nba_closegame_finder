@@ -1,6 +1,6 @@
 # NBA CloseGame Finder
 
-Find the most exciting NBA games based on how close and competitive they were in the 4th quarter.
+Find the most exciting NBA games based on how close and competitive they were in the end of the game.
 
 ### Installation
 
