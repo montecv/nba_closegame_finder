@@ -51,8 +51,12 @@ def get_game_data(game_url):
     html = re.sub("<!--|-->", "", html)
     soup = BeautifulSoup(html, "html.parser")
     teams = soup.select("div.scorebox strong a")
-    game_data['teams'] = f'{teams[0].text} vs {teams[1].text}'
 
+    if len(teams) < 2:
+        title = soup.title.string if soup.title else "No found"
+        raise ValueError(f"{game_url}: {title}")
+
+    game_data['teams'] = f'{teams[0].text} vs {teams[1].text}'
     table = soup.find("table", {"id": "pbp"})
     rows = table.find_all("tr")
     data = []

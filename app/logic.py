@@ -54,6 +54,9 @@ def get_matches_coef(start_date_str: str, end_date_str: str):
             except BlockedBySiteError:
                 print("Seems like we are blocked for 5 minutes or 1 hour. Stop getting info.")
                 return sorted(results, key=lambda r: r["coef"])
+            except ValueError as e:
+                print(e)
+                continue
 
             data_scores = []
             is_clutch_time = False
